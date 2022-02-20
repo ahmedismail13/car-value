@@ -9,6 +9,8 @@ import {
   Delete,
   NotFoundException,
   Session,
+  UseInterceptors,
+  UseGuards,
 } from '@nestjs/common';
 import { CreateUserDto } from './dtos/create-user.dto';
 import { UpdateUserDto } from './dtos/update-user.dto';
@@ -16,9 +18,14 @@ import { UsersService } from './users.service';
 import { Serialize } from '../interceptors/serialize.interceptor';
 import { UserDto } from './dtos/user.dto';
 import { AuthService } from './auth.service';
+import { CurrentUser } from './decorators/current-user.decorator';
+import { User } from './users.entity';
+import { CurrentUserInterceptor } from './interceptors/current-user.interceptor';
+import { AuthGuard } from 'src/guards/auth.guard';
 
 @Controller('auth')
 @Serialize(UserDto)
+@UseInterceptors(CurrentUserInterceptor)
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
@@ -32,11 +39,23 @@ export class UsersController {
     return user;
   }
 
+  @Get('/me')
+  @UseGuards(AuthGuard)
+  async me(@CurrentUser() user: User) {
+    return user;
+  }
+
   @Post('/signin')
   async signIn(@Body() body: CreateUserDto, @Session() session) {
     const user = await this.authService.signIn(body.email, body.password);
     session.userId = user.id;
     return user;
+  }
+
+  @Post('/signout')
+  async signOut(@Session() session) {
+    session.userId = null;
+    return { message: 'Signed out' };
   }
 
   @Get('/:id')
